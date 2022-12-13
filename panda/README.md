@@ -1,6 +1,6 @@
 # Run the command
 to run the simulation start it with `python3 -m rl.main`.
-Since every time we run the model it takes the same name, it will train it on the same instance, therefore continuing the training from where it stopped last time. To change this and start a new training on a fresh model, we can add the `--suffix` flag and add a string. This will save the model as rl.111.YOUR_SUFFIX_STRING in the log/ folder.
+Since every time we run the model it takes the same name, it will train it on the same instance, therefore continuing the training from where it stopped last time. To change this and start a new training on a fresh model, we can add the `--suffix` flag and add a string. This will save the model as `rl.111.YOUR_SUFFIX_STRING` in the log/ folder.
 
 ## Config
 Config contains configuration details about environment, controller and learning algorithms. 

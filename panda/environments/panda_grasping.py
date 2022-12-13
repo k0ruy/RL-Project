@@ -135,7 +135,7 @@ class PandaGrasp(PandaEnv):
         dist = np.sqrt(squared_dist)
         if dist <= 10: # millimeters
             reward += 10
-        elif 10 < dist <= 50:
+        elif 10 < dist <= 20:
             reward += 5
         else:
             reward -= 5

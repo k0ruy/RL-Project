@@ -51,12 +51,12 @@ def run(config):
     # set the display no. configured with gpu
     os.environ["DISPLAY"] = ":0"
     # use gpu or cpu
-    if config.gpu is not None:
-        os.environ["CUDA_VISIBLE_DEVICES"] = "{}".format(config.gpu)
-        assert torch.cuda.is_available()
-        config.device = torch.device("cuda")
-    else:
-        config.device = torch.device("cpu")
+    # if config.gpu is not None:
+    #     os.environ["CUDA_VISIBLE_DEVICES"] = "{}".format(config.gpu)
+    #     assert torch.cuda.is_available()
+    #     config.device = torch.device("cuda")
+    # else:
+    config.device = torch.device("cpu")
 
     # build a trainer
     trainer = Trainer(config)

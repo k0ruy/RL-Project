@@ -58,9 +58,9 @@ class Trainer():
         # TODO: Insert your wandb account user and project name below
         # Weights and Biases (wandb) is used for logging, set the account details below or dry run above
             # user or team name
-            entity = 'your-user-name'
+            entity = 'chri-berchtold'
             # project name
-            project = 'your-project-name'
+            project = 'rl'
 
             wandb.init(
                 resume=config.run_name,
@@ -99,7 +99,7 @@ class Trainer():
 
         if ckpt_path is not None:
             logger.warn('Load checkpoint %s', ckpt_path)
-            ckpt = torch.load(ckpt_path) # ckpt is a dict with keys (step, update_iter, agent)
+            ckpt = torch.load(ckpt_path, map_location=torch.device('cpu')) # ckpt is a dict with keys (step, update_iter, agent)
             self._agent.load_state_dict(ckpt['agent'])
 
             if self._config.is_train:

@@ -33,7 +33,7 @@ def argparser():
     parser.add_argument('--polyak', type=float, default=0.995, help='the average coefficient')
 
     # training
-    parser.add_argument('--is_train', type=str2bool, default=False)
+    parser.add_argument('--is_train', type=str2bool, default=True)
     parser.add_argument('--num_batches', type=int, default=60, help='the times to update the network per epoch')
     parser.add_argument('--batch_size', type=int, default=512, help='the sample batch size')
     parser.add_argument('--max_grad_norm', type=float, default=100)

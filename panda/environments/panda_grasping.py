@@ -119,13 +119,19 @@ class PandaGrasp(PandaEnv):
         Returns:
             reward (float): the reward
         """
+
+        reward = 0
         # TODO: Implement the reward to grasp and lift the cube
 
         # reaching reward
         cube_pos = self.sim.data.body_xpos[self.cube_body_id]
         gripper_site_pos = self.sim.data.site_xpos[self.eef_site_id]
 
-        reward = 0
+        # give reward if gripper is close to the cube
+        # POSSIBLE: give possible negative reward (penalize) if the robot does something we dont want
+
+        if abs(gripper_site_pos - cube_pos) <= 10: # millimeters
+            reward += 10
 
         return reward
 

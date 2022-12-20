@@ -134,7 +134,10 @@ class PandaGrasp(PandaEnv):
         # calculate distance between points in space
         r_dist = 1 - np.tanh(np.linalg.norm(gripper_site_pos - cube_pos))
         
-        if r_dist < 80:
+        # we started first without velocity, but it was knocking the cube
+        # then started using it to slow it down.
+        d = np.linalg.norm(gripper_site_pos - cube_pos) 
+        if d < 0.008:
             r_vel = 1 - np.tanh(np.sum(np.linalg.norm(vel))/3)
         else:
             r_vel = 0

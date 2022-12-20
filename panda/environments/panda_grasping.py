@@ -126,19 +126,21 @@ class PandaGrasp(PandaEnv):
         # reaching reward
         cube_pos = self.sim.data.body_xpos[self.cube_body_id] # shape (3,)
         gripper_site_pos = self.sim.data.site_xpos[self.eef_site_id] # shape (3,)
-
+        vel = self.ee_v[:3]
+        # print(vel)
         # give reward if gripper is close to the cube
         # POSSIBLE: give possible negative reward (penalize) if the robot does something we dont want
 
         # calculate distance between points in space
-        squared_dist = np.sum((cube_pos-gripper_site_pos)**2, axis=0)
-        dist = np.sqrt(squared_dist)
-        if dist <= 10: # millimeters
-            reward += 10
-        elif 10 < dist <= 20:
-            reward += 5
+        r_dist = 1 - np.tanh(np.linalg.norm(gripper_site_pos - cube_pos))
+        
+        if r_dist < 80:
+            r_vel = 1 - np.tanh(np.sum(np.linalg.norm(vel))/3)
         else:
-            reward -= 5
+            r_vel = 0
+        
+        reward = 0.7*r_dist + 0.3*r_vel
+
 
         return reward
 

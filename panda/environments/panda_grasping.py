@@ -113,39 +113,102 @@ class PandaGrasp(PandaEnv):
         # reset grasp state
         self.has_grasp = False
 
-    def reward(self, action=None):
+def reward(self, action=None):
         """
         Reward function for the task.
         Returns:
             reward (float): the reward
         """
-
-        reward = 0
-        # TODO: Implement the reward to grasp and lift the cube
-
         # reaching reward
-        cube_pos = self.sim.data.body_xpos[self.cube_body_id] # shape (3,)
-        gripper_site_pos = self.sim.data.site_xpos[self.eef_site_id] # shape (3,)
-        vel = self.ee_v[:3]
-        # print(vel)
-        # give reward if gripper is close to the cube
-        # POSSIBLE: give possible negative reward (penalize) if the robot does something we dont want
+        cube_pos = self.sim.data.body_xpos[self.cube_body_id]
+        gripper_site_pos = self.sim.data.site_xpos[self.eef_site_id]
+        dist = np.linalg.norm(gripper_site_pos - cube_pos) # Eucledian distance b/w cube and grip site
+        reaching_reward = 1 - np.tanh(10.0 * dist) # tanh function on distance
 
-        # calculate distance between points in space
-        r_dist = 1 - np.tanh(np.linalg.norm(gripper_site_pos - cube_pos))
-        
-        # we started first without velocity, but it was knocking the cube
-        # then started using it to slow it down.
-        d = np.linalg.norm(gripper_site_pos - cube_pos) 
-        if d < 0.008:
-            r_vel = 1 - np.tanh(np.sum(np.linalg.norm(vel))/3)
-        else:
-            r_vel = 0
-        
-        reward = 0.7*r_dist + 0.3*r_vel
+        # slow down reward
+        vel = np.sum(abs(self.ee_v)) / 6
+        vel_reward = 1 - np.tanh(10.0 * vel)
 
+        # Two phases of the task (0.Reaching and 1.Grasping+Lifiting)
+        if self.phase == 0:
 
-        return reward
+            reward = 0.6 * reaching_reward
+
+            if dist < 0.08:
+                reward += 0.3 * vel_reward
+
+            # gripper open reward
+            if action[-1] < 0:
+                reward += 0.1 * abs(action[-1])
+
+            if dist < 0.025:
+                self.phase = 1
+
+        elif self.phase == 1:
+
+            reward = reaching_reward + vel_reward
+
+            # gripper closing reward
+            if action[-1] > 0:
+                reward += 0.5 * action[-1]
+
+            # check contact between fingers and cube
+            touch_left_finger = False
+            touch_right_finger = False
+
+            for i in range(self.sim.data.ncon):
+                c = self.sim.data.contact[i]
+                if c.geom1 in self.l_finger_geom_ids and c.geom2 == self.cube_geom_id:
+                    touch_left_finger = True
+                if c.geom1 == self.cube_geom_id and c.geom2 in self.l_finger_geom_ids:
+                    touch_left_finger = True
+                if c.geom1 in self.r_finger_geom_ids and c.geom2 == self.cube_geom_id:
+                    touch_right_finger = True
+                if c.geom1 == self.cube_geom_id and c.geom2 in self.r_finger_geom_ids:
+                    touch_right_finger = True
+
+            self.has_grasp = touch_left_finger and touch_right_finger
+
+            # grasping reward
+            if self.has_grasp:
+                reward += 0.5
+
+        # success reward
+        if self._check_success():
+            reward += 5.0
+
+        # stay within joint limits! This is used only in retraining condition
+        #if self._check_q_limits():
+            #reward -= 1.0
+
+        # Collision avoidance scene
+        if self.config.mode == 2:
+                # collision penalty
+                collision = False
+                for contact in self.sim.data.contact[:self.sim.data.ncon]:
+                    # hand collision check
+                    if self.sim.model.geom_id2name(contact.geom1) in self.hand_names and contact.geom2 == self.cyl_geom_id:
+                        collision = True
+                    if self.sim.model.geom_id2name(contact.geom2) in self.hand_names and contact.geom1 == self.cyl_geom_id:
+                        collision = True
+                    if self.sim.model.geom_id2name(contact.geom1) in self.hand_names and contact.geom2 == self.cyl2_geom_id:
+                        collision = True
+                    if self.sim.model.geom_id2name(contact.geom2) in self.hand_names and contact.geom1 == self.cyl2_geom_id:
+                        collision = True
+                    # cube collision check
+                    if contact.geom1 == self.cyl_geom_id and contact.geom2 == self.cube_geom_id:
+                        collision = True
+                    if contact.geom1 == self.cube_geom_id and contact.geom2 == self.cyl_geom_id:
+                        collision = True
+                    if contact.geom1 == self.cyl2_geom_id and contact.geom2 == self.cube_geom_id:
+                        collision = True
+                    if contact.geom1 == self.cube_geom_id and contact.geom2 == self.cyl2_geom_id:
+                        collision = True
+
+                if collision:
+                    reward -= 5.0
+
+        return 
 
     def _check_success(self):
         """

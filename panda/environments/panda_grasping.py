@@ -31,6 +31,7 @@ class PandaGrasp(PandaEnv):
         self.config = config
         self.table_full_size = config.table_full_size
         self.stage = 0
+        self.time_limit = 100
 
         # Load the controller parameter configuration files
         controller_filepath = os.path.join(os.path.dirname(__file__), '..','config/controller_config.hjson')
@@ -120,6 +121,10 @@ class PandaGrasp(PandaEnv):
         Reward function for the task.
         Returns: reward (float): the reward
         """
+
+        start = self.sim.data.time
+        task_done = False
+
         # reaching reward
         cube_pos = self.sim.data.body_xpos[self.cube_body_id]
         gripper_site_pos = self.sim.data.site_xpos[self.eef_site_id]
@@ -127,7 +132,7 @@ class PandaGrasp(PandaEnv):
         reaching_reward = 1 - np.tanh(10.0 * dist) # tanh function on distance
 
         # speed up reward
-        vel = np.sum(abs(self.ee_v)) * 5
+        vel = np.sum(abs(self.ee_v)) / 5
         vel_reward = 1 - np.tanh(10.0 * vel)
 
         reward = 0.7 * reaching_reward + 0.4 * vel_reward
@@ -137,44 +142,40 @@ class PandaGrasp(PandaEnv):
 
         reward = 0.7 * reaching_reward
 
-        if dist > 0.1:
+        if dist < 0.1:
             reward += 0.4 * vel_reward
 
-        # gripper open reward
-        if action[-1] < 0:
-            reward += 0.2 * abs(action[-1])
+        # gripper closing reward
+        if action[-1] > 0:
+            reward += 0.6 * action[-1]
 
-        #         if dist < 0.05:
-        #             self.stage = 1
+            # check contact between fingers and cube
+            touch_grip_sx = False
+            touch_grip_dx = False
 
-        # elif self.stage == 1:
+            for i in range(self.sim.data.ncon):
+                c = self.sim.data.contact[i]
+                if c.geom1 in self.l_finger_geom_ids and c.geom2 == self.cube_geom_id:
+                    touch_grip_sx = True
+                if c.geom1 == self.cube_geom_id and c.geom2 in self.l_finger_geom_ids:
+                    touch_grip_sx = True
+                if c.geom1 in self.r_finger_geom_ids and c.geom2 == self.cube_geom_id:
+                    touch_grip_dx = True
+                if c.geom1 == self.cube_geom_id and c.geom2 in self.r_finger_geom_ids:
+                    touch_grip_dx = True
 
-        # reward = reaching_reward + vel_reward
+            self.has_grasp = touch_grip_sx and touch_grip_dx
 
-        # # gripper closing reward
-        # if action[-1] > 0:
-        #     reward += 0.6 * action[-1]
+            # grasping reward
+            if self.has_grasp:
+                reward += 0.6
+                task_done = True
 
-        # # check contact between fingers and cube
-        # touch_grip_sx = False
-        # touch_grip_dx = False
+        if task_done:
+            timestep = self.sim.data.time - start
 
-        # for i in range(self.sim.data.ncon):
-        #     c = self.sim.data.contact[i]
-        #     if c.geom1 in self.l_finger_geom_ids and c.geom2 == self.cube_geom_id:
-        #         touch_grip_sx = True
-        #     if c.geom1 == self.cube_geom_id and c.geom2 in self.l_finger_geom_ids:
-        #         touch_grip_sx = True
-        #     if c.geom1 in self.r_finger_geom_ids and c.geom2 == self.cube_geom_id:
-        #         touch_grip_dx = True
-        #     if c.geom1 == self.cube_geom_id and c.geom2 in self.r_finger_geom_ids:
-        #         touch_grip_dx = True
-
-        # self.has_grasp = touch_grip_sx and touch_grip_dx
-
-        # # grasping reward
-        # if self.has_grasp:
-        #     reward += 0.6
+        if task_done and timestep <= self.time_limit:
+            reward += 0.4 * timestep
 
         # success reward
         if self._check_success():

@@ -154,7 +154,10 @@ class PandaGrasp(PandaEnv):
                 if c.geom1 in self.l_finger_geom_ids and c.geom2 == self.cube_geom_id:
                     gripper_reward += 1
 
-            # Reward for completing the task successfully
+                    self.has_grasp = True
+
+
+        # Reward for completing the task successfully
         success_reward = 10.0 if self._check_success() else 0
 
         return reward + success_reward + gripper_reward

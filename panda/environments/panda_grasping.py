@@ -117,26 +117,47 @@ class PandaGrasp(PandaEnv):
         self.has_grasp = False
 
     def reward(self, action=None):
+        # calculate euclidean distance between gripper site and target cube
+        gripper_site_pos = self.sim.data.site_xpos[self.eef_site_id]
+        cube_pos = self.sim.data.body_xpos[self.cube_body_id]
+        dist = np.linalg.norm(gripper_site_pos - cube_pos)
 
-        # Distance between gripper and cube
-        dist = np.linalg.norm(self.sim.data.site_xpos[self.eef_site_id] - self.sim.data.body_xpos[self.cube_body_id])
-
-        # Reward for reaching the cube
+        # define reaching reward based on the distance
         reaching_reward = 1 - np.tanh(10.0 * dist)
 
-        # Reward for closing the gripper
-        gripper_reward = 0.6 * action[-1] if action[-1] > 0 else 0
+        # calculate gripper velocity
+        gripper_vel = np.linalg.norm(self.sim.data.qvel[:3])
 
-        # Reward for grasping the cube
-        for i in range(self.sim.data.ncon):
-            c = self.sim.data.contact[i]
-            if (c.geom1 in self.l_finger_geom_ids and c.geom2 == self.cube_geom_id) or (c.geom1 == self.cube_geom_id and c.geom2 in self.l_finger_geom_ids):
-                gripper_reward += 0.6
+        # define speed up reward
+        vel_reward = 1 - np.tanh(10.0 * gripper_vel)
 
-        # Reward for completing the task successfully
+        if self.stage == 0:
+            # define task phase based reward
+            if dist < 0.1:
+                reward = 0.7 * reaching_reward + 0.4 * vel_reward
+            else:
+                reward = 0.7 * reaching_reward 
+        
+            # Reward for opening the gripper
+            gripper_reward = 0.6 * abs(action[-1]) if action[-1] < 0 else 0
+
+            if dist < 0.01:
+                self.stage = 1
+
+        elif self.stage == 1:
+            reward = reaching_reward + vel_reward
+            # Reward for closing the gripper
+            gripper_reward = 0.6 * action[-1] if action[-1] > 0 else 0
+
+            for i in range(self.sim.data.ncon):
+                c = self.sim.data.contact[i]
+                if c.geom1 in self.l_finger_geom_ids and c.geom2 == self.cube_geom_id:
+                    gripper_reward += 1
+
+            # Reward for completing the task successfully
         success_reward = 10.0 if self._check_success() else 0
 
-        return reaching_reward + gripper_reward + success_reward
+        return reward + success_reward + gripper_reward
 
     def _check_success(self):
         """
